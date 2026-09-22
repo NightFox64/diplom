@@ -278,3 +278,222 @@ TEST(FieldEquals, OneEqualsOne) {
 TEST(FieldEquals, ZeroNotEqualOne) {
     EXPECT_FALSE(FieldElement::ZERO == FieldElement::ONE);
 }
+
+// ============================================================
+// field_mul
+// ============================================================
+
+TEST(FieldMul, ZeroAnnihilates) {
+    std::array<uint8_t, 32> raw{};
+    raw[0] = 0x42; raw[15] = 0xAB;
+    FieldElement a = field_from_bytes(raw);
+    EXPECT_EQ(field_to_bytes(field_mul(a, FieldElement::ZERO)),
+              field_to_bytes(FieldElement::ZERO));
+    EXPECT_EQ(field_to_bytes(field_mul(FieldElement::ZERO, a)),
+              field_to_bytes(FieldElement::ZERO));
+}
+
+TEST(FieldMul, OneIsIdentity) {
+    std::array<uint8_t, 32> raw{};
+    raw[0] = 0x37; raw[8] = 0x11;
+    FieldElement a = field_from_bytes(raw);
+    EXPECT_EQ(field_to_bytes(field_mul(a, FieldElement::ONE)), field_to_bytes(a));
+    EXPECT_EQ(field_to_bytes(field_mul(FieldElement::ONE, a)), field_to_bytes(a));
+}
+
+TEST(FieldMul, Commutativity) {
+    std::array<uint8_t, 32> ra{}, rb{};
+    ra[0] = 0x13; ra[3] = 0x7F;
+    rb[0] = 0x29; rb[5] = 0x55;
+    FieldElement a = field_from_bytes(ra);
+    FieldElement b = field_from_bytes(rb);
+    EXPECT_EQ(field_to_bytes(field_mul(a, b)),
+              field_to_bytes(field_mul(b, a)));
+}
+
+TEST(FieldMul, Associativity) {
+    std::array<uint8_t, 32> ra{}, rb{}, rc{};
+    ra[0] = 3; rb[0] = 5; rc[0] = 7;
+    FieldElement a = field_from_bytes(ra);
+    FieldElement b = field_from_bytes(rb);
+    FieldElement c = field_from_bytes(rc);
+    FieldElement lhs = field_mul(field_mul(a, b), c);
+    FieldElement rhs = field_mul(a, field_mul(b, c));
+    EXPECT_EQ(field_to_bytes(lhs), field_to_bytes(rhs));
+}
+
+TEST(FieldMul, Distributivity) {
+    // a * (b + c) == a*b + a*c
+    std::array<uint8_t, 32> ra{}, rb{}, rc{};
+    ra[0] = 11; rb[0] = 13; rc[0] = 17;
+    FieldElement a = field_from_bytes(ra);
+    FieldElement b = field_from_bytes(rb);
+    FieldElement c = field_from_bytes(rc);
+    FieldElement lhs = field_mul(a, field_add(b, c));
+    FieldElement rhs = field_add(field_mul(a, b), field_mul(a, c));
+    EXPECT_EQ(field_to_bytes(lhs), field_to_bytes(rhs));
+}
+
+TEST(FieldMul, KnownSmallResult) {
+    // 6 * 7 = 42
+    auto make_small = [](uint64_t v) {
+        std::array<uint8_t, 32> b{};
+        std::memcpy(b.data(), &v, 8);
+        return field_from_bytes(b);
+    };
+    FieldElement a = make_small(6);
+    FieldElement b = make_small(7);
+    FieldElement p = field_mul(a, b);
+    std::array<uint8_t, 32> expect42{};
+    uint64_t v = 42;
+    std::memcpy(expect42.data(), &v, 8);
+    EXPECT_EQ(field_to_bytes(p), expect42);
+}
+
+TEST(FieldMul, Random100Commutative) {
+    std::mt19937_64 rng(0xCAFEBABE);
+    for (int iter = 0; iter < 100; ++iter) {
+        std::array<uint8_t, 32> b1{}, b2{};
+        for (size_t j = 0; j < 4; ++j) {
+            uint64_t r1 = rng(), r2 = rng();
+            std::memcpy(b1.data() + j * 8, &r1, 8);
+            std::memcpy(b2.data() + j * 8, &r2, 8);
+        }
+        b1[31] &= 0x7F;
+        b2[31] &= 0x7F;
+        FieldElement a = field_from_bytes(b1);
+        FieldElement b = field_from_bytes(b2);
+        EXPECT_EQ(field_to_bytes(field_mul(a, b)),
+                  field_to_bytes(field_mul(b, a)));
+    }
+}
+
+// ============================================================
+// field_sqr
+// ============================================================
+
+TEST(FieldSqr, ZeroIsZero) {
+    EXPECT_EQ(field_to_bytes(field_sqr(FieldElement::ZERO)),
+              field_to_bytes(FieldElement::ZERO));
+}
+
+TEST(FieldSqr, OneIsOne) {
+    EXPECT_EQ(field_to_bytes(field_sqr(FieldElement::ONE)),
+              field_to_bytes(FieldElement::ONE));
+}
+
+TEST(FieldSqr, EquivalentToMulSelf) {
+    std::array<uint8_t, 32> raw{};
+    raw[0] = 0x2B; raw[7] = 0x4E;
+    FieldElement a = field_from_bytes(raw);
+    EXPECT_EQ(field_to_bytes(field_sqr(a)),
+              field_to_bytes(field_mul(a, a)));
+}
+
+TEST(FieldSqr, KnownSmallResult) {
+    // 9^2 = 81
+    auto make_small = [](uint64_t v) {
+        std::array<uint8_t, 32> b{};
+        std::memcpy(b.data(), &v, 8);
+        return field_from_bytes(b);
+    };
+    FieldElement nine = make_small(9);
+    FieldElement sq = field_sqr(nine);
+    std::array<uint8_t, 32> expect81{};
+    uint64_t v = 81;
+    std::memcpy(expect81.data(), &v, 8);
+    EXPECT_EQ(field_to_bytes(sq), expect81);
+}
+
+TEST(FieldSqr, Random50EquivMulSelf) {
+    std::mt19937_64 rng(0xBEEFDEAD);
+    for (int iter = 0; iter < 50; ++iter) {
+        std::array<uint8_t, 32> raw{};
+        for (size_t j = 0; j < 4; ++j) {
+            uint64_t r = rng();
+            std::memcpy(raw.data() + j * 8, &r, 8);
+        }
+        raw[31] &= 0x7F;
+        FieldElement a = field_from_bytes(raw);
+        EXPECT_EQ(field_to_bytes(field_sqr(a)),
+                  field_to_bytes(field_mul(a, a)));
+    }
+}
+
+// ============================================================
+// field_inv
+// ============================================================
+
+TEST(FieldInv, OneInvIsOne) {
+    FieldElement inv1 = field_inv(FieldElement::ONE);
+    EXPECT_EQ(field_to_bytes(inv1), field_to_bytes(FieldElement::ONE));
+}
+
+TEST(FieldInv, ATimesInvAIsOne) {
+    std::array<uint8_t, 32> raw{};
+    raw[0] = 0x05;
+    FieldElement a = field_from_bytes(raw);
+    FieldElement inv_a = field_inv(a);
+    FieldElement prod = field_mul(a, inv_a);
+    EXPECT_EQ(field_to_bytes(prod), field_to_bytes(FieldElement::ONE));
+}
+
+TEST(FieldInv, InvInvIsOriginal) {
+    std::array<uint8_t, 32> raw{};
+    raw[0] = 0x17; raw[4] = 0xAA;
+    FieldElement a = field_from_bytes(raw);
+    FieldElement inv_inv_a = field_inv(field_inv(a));
+    EXPECT_EQ(field_to_bytes(inv_inv_a), field_to_bytes(a));
+}
+
+TEST(FieldInv, SmallValues) {
+    // Для нескольких малых значений: a * inv(a) == 1
+    auto make_small = [](uint64_t v) {
+        std::array<uint8_t, 32> b{};
+        std::memcpy(b.data(), &v, 8);
+        return field_from_bytes(b);
+    };
+    for (uint64_t v : {2ULL, 3ULL, 7ULL, 100ULL, 255ULL}) {
+        FieldElement a = make_small(v);
+        FieldElement prod = field_mul(a, field_inv(a));
+        EXPECT_EQ(field_to_bytes(prod), field_to_bytes(FieldElement::ONE))
+            << "Failed for v=" << v;
+    }
+}
+
+TEST(FieldInv, Random20ATimesInvIsOne) {
+    std::mt19937_64 rng(0xABCDEF01);
+    for (int iter = 0; iter < 20; ++iter) {
+        std::array<uint8_t, 32> raw{};
+        for (size_t j = 0; j < 4; ++j) {
+            uint64_t r = rng();
+            std::memcpy(raw.data() + j * 8, &r, 8);
+        }
+        raw[31] &= 0x7F;
+        // Убедимся, что значение ненулевое
+        if (raw[0] == 0 && raw[8] == 0 && raw[16] == 0 && raw[24] == 0) {
+            raw[0] = 1;
+        }
+        FieldElement a = field_from_bytes(raw);
+        FieldElement prod = field_mul(a, field_inv(a));
+        EXPECT_EQ(field_to_bytes(prod), field_to_bytes(FieldElement::ONE));
+    }
+}
+
+TEST(FieldInv, DebugFive) {
+    for (uint64_t v : {1ULL, 2ULL, 3ULL, 5ULL, 7ULL}) {
+        std::array<uint8_t, 32> raw{};
+        std::memcpy(raw.data(), &v, 8);
+
+        FieldElement a = field_from_bytes(raw);
+        FieldElement inv = field_inv(a);
+        FieldElement prod = field_mul(a, inv);
+
+        auto result = field_to_bytes(prod);
+
+        std::cout << "v = " << v
+                  << ", result = "
+                  << static_cast<int>(result[0])
+                  << '\n';
+    }
+}

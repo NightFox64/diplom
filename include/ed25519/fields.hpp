@@ -27,6 +27,8 @@ namespace ed25519 {
     FieldElement field_sub(const FieldElement& a, const FieldElement& b);
     FieldElement field_carry_and_reduce(const FieldElement& fe);
 
-
+    FieldElement field_mul(const FieldElement& a, const FieldElement& b);
+    FieldElement field_sqr(const FieldElement& a);
+    FieldElement field_inv(const FieldElement& a);
 
 }

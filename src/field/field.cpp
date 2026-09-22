@@ -1,6 +1,8 @@
 #include "ed25519/fields.hpp"
 #include <cstring>
 
+using uint128_t = unsigned __int128;
+
 namespace ed25519 {
 
     const FieldElement FieldElement::ZERO{0, 0, 0, 0, 0};
@@ -149,5 +151,141 @@ namespace ed25519 {
         }
 
         return field_carry_and_reduce(res);
+    }
+
+    FieldElement field_mul(const FieldElement& a, const FieldElement& b) {
+
+        uint64_t b1_19 = b.limbs[1] * 19;
+        uint64_t b2_19 = b.limbs[2] * 19;
+        uint64_t b3_19 = b.limbs[3] * 19;
+        uint64_t b4_19 = b.limbs[4] * 19;
+
+        uint128_t c0 = (uint128_t)a.limbs[0] * b.limbs[0]
+                        + (uint128_t)a.limbs[1] * b4_19
+                        + (uint128_t)a.limbs[2] * b3_19
+                        + (uint128_t)a.limbs[3] * b2_19
+                        + (uint128_t)a.limbs[4] * b1_19;
+
+        uint128_t c1 = (uint128_t)a.limbs[0] * b.limbs[1]
+                        + (uint128_t)a.limbs[1] * b.limbs[0]
+                        + (uint128_t)a.limbs[2] * b4_19
+                        + (uint128_t)a.limbs[3] * b3_19
+                        + (uint128_t)a.limbs[4] * b2_19;
+
+        uint128_t c2 = (uint128_t)a.limbs[0] * b.limbs[2]
+                        + (uint128_t)a.limbs[1] * b.limbs[1]
+                        + (uint128_t)a.limbs[2] * b.limbs[0]
+                        + (uint128_t)a.limbs[3] * b4_19
+                        + (uint128_t)a.limbs[4] * b3_19;
+
+        uint128_t c3 = (uint128_t)a.limbs[0] * b.limbs[3]
+                        + (uint128_t)a.limbs[1] * b.limbs[2]
+                        + (uint128_t)a.limbs[2] * b.limbs[1]
+                        + (uint128_t)a.limbs[3] * b.limbs[0]
+                        + (uint128_t)a.limbs[4] * b4_19;
+
+        uint128_t c4 = (uint128_t)a.limbs[0] * b.limbs[4]
+                        + (uint128_t)a.limbs[1] * b.limbs[3]
+                        + (uint128_t)a.limbs[2] * b.limbs[2]
+                        + (uint128_t)a.limbs[3] * b.limbs[1]
+                        + (uint128_t)a.limbs[4] * b.limbs[0];
+
+        FieldElement res;
+        uint128_t carry = 0;
+
+        res.limbs[0] = (uint64_t)c0 & MASK_51BIT;
+        carry = c0 >> 51;
+        c1 += carry;
+
+        res.limbs[1] = (uint64_t)c1 & MASK_51BIT;
+        carry = c1 >> 51;
+        c2 += carry;
+
+        res.limbs[2] = (uint64_t)c2 & MASK_51BIT;
+        carry = c2 >> 51;
+        c3 += carry;
+
+        res.limbs[3] = (uint64_t)c3 & MASK_51BIT;
+        carry = c3 >> 51;
+        c4 += carry;
+
+        res.limbs[4] = (uint64_t)c4 & MASK_51BIT;
+        carry = c4 >> 51;
+        
+        res.limbs[0] += (uint64_t)carry * 19;
+        carry = res.limbs[0] >> 51;
+        res.limbs[0] &= MASK_51BIT;
+        res.limbs[1] += (uint64_t)carry;
+
+        return res;
+
+    }
+
+    FieldElement field_sqr(const FieldElement& a) {
+        return field_mul(a, a);
+    }
+
+    FieldElement field_inv(const FieldElement& a) {
+        auto sqr_n = [](FieldElement x, int n) {
+            for (int i = 0; i < n; i++) {
+                x = field_sqr(x);
+            }
+            return x;
+        };
+
+        FieldElement t0, t1, t2, t3;
+
+        t0 = field_sqr(a);
+
+        // a^4
+        t1 = field_sqr(t0);
+
+        // a^8
+        t1 = field_sqr(t1);
+
+        // a^9
+        t1 = field_mul(a, t1);
+
+        // a^11
+        t0 = field_mul(t0, t1);
+
+        // a^22
+        t2 = field_sqr(t0);
+
+        // a^31
+        t1 = field_mul(t2, t1);
+
+        // a^(2^10 - 1) = a^1023
+        t2 = sqr_n(t1, 5);
+        t1 = field_mul(t2, t1);
+
+        // a^(2^20 - 1)
+        t2 = sqr_n(t1, 10);
+        t2 = field_mul(t2, t1);
+
+        // a^(2^40 - 1)
+        t3 = sqr_n(t2, 20);
+        t2 = field_mul(t3, t2);
+
+        // a^(2^50 - 1)
+        t3 = sqr_n(t2, 10);
+        t1 = field_mul(t3, t1);
+
+        // a^(2^100 - 1)
+        t3 = sqr_n(t1, 50);
+        t2 = field_mul(t3, t1);
+
+        // a^(2^200 - 1)
+        t3 = sqr_n(t2, 100);
+        t2 = field_mul(t3, t2);
+
+        // a^(2^250 - 1)
+        t3 = sqr_n(t2, 50);
+        t1 = field_mul(t3, t1);
+
+        // a^(2^255 - 21)
+        t1 = sqr_n(t1, 5);
+
+        return field_mul(t1, t0);
     }
 }
