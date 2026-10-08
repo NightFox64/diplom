@@ -22,6 +22,8 @@ namespace ed25519 {
     FieldElement field_from_bytes(std::span<const uint8_t, 32> bytes);
     std::array<uint8_t, 32> field_to_bytes(const FieldElement& fe);
 
+    FieldElement field_neg(const FieldElement& a);
+
 
     FieldElement field_add(const FieldElement& a, const FieldElement& b);
     FieldElement field_sub(const FieldElement& a, const FieldElement& b);

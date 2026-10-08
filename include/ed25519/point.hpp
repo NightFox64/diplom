@@ -14,15 +14,15 @@ namespace ed25519 {
 
         static const Point IDENTITY;
         static const Point BASE;
-
-        bool operator==(const Point& other) const;
     };
+
+    bool operator==(const Point& P, const Point& Q);
 
     Point point_add(const Point& P, const Point& Q);
     Point point_double(const Point& P);
     Point point_negate(const Point& P);
 
-    Point point_scalar_mul(const Point& P, std::span<const uint8_t, 32> scalar);
+    Point point_scalar(const Point& P, std::span<const uint8_t, 32> scalar);
 
     std::optional<Point> point_from_bytes(std::span<const uint8_t, 32> bytes);
     std::array<uint8_t, 32> point_to_bytes(const Point& P);

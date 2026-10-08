@@ -31,12 +31,17 @@ FetchContent_MakeAvailable(benchmark)
 
 add_library(ed25519_core
     src/field/field.cpp
+    src/point/point.cpp
 )
 target_include_directories(ed25519_core PUBLIC include)
 
 enable_testing()
 
-add_executable(unit_tests tests/field_test.cpp)
+add_executable(unit_tests 
+    tests/field_test.cpp
+    tests/point_test.cpp
+)
+
 target_link_libraries(unit_tests PRIVATE ed25519_core GTest::gtest_main)
 include(GoogleTest)
 gtest_discover_tests(unit_tests)

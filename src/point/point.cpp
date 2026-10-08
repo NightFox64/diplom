@@ -50,7 +50,7 @@ namespace ed25519 {
         FieldElement A = field_mul(field_sub(P.Y, P.X), field_sub(Q.Y, Q.X));
         FieldElement B = field_mul(field_add(P.Y, P.X), field_add(Q.Y, Q.X));
         FieldElement C = field_mul(field_mul(TWO_D, P.T), Q.T);
-        FieldElement D = field_mul(field_mul(P.Z, P.Z), Q.Z);
+        FieldElement D = field_add(field_mul(P.Z, Q.Z), field_mul(P.Z, Q.Z));
         FieldElement E = field_sub(B, A);
         FieldElement F = field_sub(D, C);
         FieldElement G = field_add(D, C);
@@ -71,9 +71,9 @@ namespace ed25519 {
         FieldElement C = field_sqr(P.Z);
         C = field_add(C, C);
 
-        FieldElement D = field_inv(A);
+        FieldElement D = field_neg(A);
         FieldElement E = field_sub(field_sqr(field_add(P.X, P.Y)), field_add(A, B));
-        FieldElement G = field_sub(D, B);
+        FieldElement G = field_add(D, B);
         FieldElement F = field_sub(G, C);
         FieldElement H = field_sub(D, B);
 
@@ -87,10 +87,10 @@ namespace ed25519 {
 
     Point point_negate(const Point& P) {
         return Point{
-            field_sub(FieldElement::ZERO, P.X),
+            field_neg(P.X),
             P.Y,
             P.Z,
-            field_sub(FieldElement::ZERO, P.T),
+            field_neg(P.T),
         };
     }
 
@@ -159,7 +159,7 @@ namespace ed25519 {
             static const FieldElement SQRT_M1 = []() {
                 constexpr std::array<uint8_t, 32> sm1_bytes = {
                     0xb0, 0xa0, 0x0e, 0x4a, 0x27, 0x1b, 0xee, 0xc4,
-                    0x78, 0xe4, 0x2f, 0xad, 0x06, 0x18, 0x43, 0x2fa,
+                    0x78, 0xe4, 0x2f, 0xad, 0x06, 0x18, 0x43, 0x2f,
                     0xa7, 0xd7, 0xfb, 0x61, 0xd2, 0x47, 0xb2, 0xa3,
                     0xaa, 0x61, 0x41, 0x4f, 0x1a, 0xbf, 0x4d, 0x2b
                 };

@@ -153,6 +153,10 @@ namespace ed25519 {
         return field_carry_and_reduce(res);
     }
 
+    FieldElement field_neg(const FieldElement& a) {
+        return field_sub(FieldElement::ZERO, a);
+    }
+
     FieldElement field_mul(const FieldElement& a, const FieldElement& b) {
 
         uint64_t b1_19 = b.limbs[1] * 19;
